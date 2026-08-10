@@ -68,6 +68,24 @@ if enabled_plugins.get('GDS_MT')
     endif
 endif
 
+# MUSA_MT (Route 3): a dedicated multi-threaded file backend built directly on
+# MUSA muFile + Taskflow, mirroring the ROCm AIS_MT plugin. Lives under
+# src/plugins/mt/musa and is fully decoupled from upstream GDS_MT.
+disable_musa_mt_backend = get_option('disable_musa_mt_backend')
+if enabled_plugins.get('MUSA_MT')
+    if (disable_musa_mt_backend or not musa_dep.found() or not taskflow_proj.found()) and is_explicit_enable
+        if disable_musa_mt_backend
+            error('MUSA_MT plugin requested but MUSA_MT muFile support is disabled (-Ddisable_musa_mt_backend=true)')
+        elif not musa_dep.found()
+            error('MUSA_MT plugin requested but MUSA dependency not found (set -Dmusa_path=)')
+        else
+            error('MUSA_MT plugin requested but Taskflow dependency not found')
+        endif
+    elif not disable_musa_mt_backend and musa_dep.found() and taskflow_proj.found()
+        subdir('mt')
+    endif
+endif
+
 cc = meson.get_compiler('cpp')
 libtransfer_engine = cc.find_library('transfer_engine', required: false)
 if enabled_plugins.get('MOONCAKE')

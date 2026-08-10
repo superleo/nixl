@@ -29,7 +29,7 @@ if enable_plugins_opt != '' and disable_plugins_opt != ''
     error('Cannot specify both enable_plugins and disable_plugins options')
 endif
 
-all_plugins = ['UCX', 'LIBFABRIC', 'POSIX', 'OBJ', 'GDS', 'GDS_MT', 'MOONCAKE', 'HF3FS', 'GUSLI', 'GPUNETIO', 'UCCL', 'AZURE_BLOB', 'INFINIA', 'TELEMETRY_DOCA']
+all_plugins = ['UCX', 'LIBFABRIC', 'POSIX', 'OBJ', 'GDS', 'GDS_MT', 'MUSA_MT', 'MOONCAKE', 'HF3FS', 'GUSLI', 'GPUNETIO', 'UCCL', 'AZURE_BLOB', 'INFINIA', 'TELEMETRY_DOCA']
 
 enabled_plugins = {}
 
@@ -322,6 +322,39 @@ else
     warning('CUDA not found. UCX backend will be built without CUDA support, and some plugins will be disabled.')
     doca_gpunetio_dep = disabler()
     cuda_wheel_dir = 'nixl_cu12'
+endif
+
+# --- MUSA / muFile detection (independent of CUDA; both stacks may coexist) ---
+# MUSA (Moore Threads) provides a CUDA-compatible runtime (libmusa) plus muFile,
+# a GPUDirect-Storage layer API-identical to NVIDIA cuFile. Route 3 (MUSA_MT)
+# builds a dedicated plugin tree under src/plugins/mt/musa that drives muFile +
+# Taskflow directly, mirroring the ROCm AIS_MT design.
+musa_dep = disabler()
+musa_home = get_option('musa_path')
+if musa_home == ''
+    musa_home = run_command('bash', '-c',
+        'echo ${MUSA_PATH:-${MUSA_HOME:-/usr/local/musa}}').stdout().strip()
+endif
+if musa_home == ''
+    musa_home = '/usr/local/musa'
+endif
+musa_lib = musa_home + '/lib'
+musa_inc = musa_home + '/include'
+if fs.exists(musa_lib) and fs.exists(musa_inc)
+    musa_dep = declare_dependency(
+        link_args : ['-L' + musa_lib, '-lmusa', '-Wl,-rpath,' + musa_lib],
+        include_directories : include_directories(musa_inc))
+    message('Found MUSA installation: ' + musa_home)
+endif
+
+if musa_dep.found()
+    add_project_arguments('-DHAVE_MUSA', language: 'cpp')
+    add_project_arguments('-D__MUSA_PLATFORM__', language: 'cpp')
+    message('MUSA support enabled')
+endif
+
+if cuda_dep.found() and musa_dep.found()
+    message('CUDA and MUSA are both available; NVIDIA and MUSA plugin stacks may be built together when enabled.')
 endif
 
 # Allow callers (e.g. ROCm CI/Dockerfile) to override the wheel variant suffix
