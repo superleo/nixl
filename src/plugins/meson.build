@@ -55,15 +55,18 @@ if enabled_plugins.get('GDS')
 endif
 
 if enabled_plugins.get('GDS_MT')
-    if (disable_gds_backend or not cuda_dep.found() or not taskflow_proj.found()) and is_explicit_enable
+    # GDS_MT needs either CUDA+cuFile or MUSA+muFile. On MUSA the upstream
+    # cuFile-authored sources are reused via the mufile_compat.h shim and a
+    # link-time swap to libmusa/libmufile (see gds_mt/meson.build).
+    if (disable_gds_backend or (not cuda_dep.found() and not musa_dep.found()) or not taskflow_proj.found()) and is_explicit_enable
         if disable_gds_backend
             error('GDS_MT plugin requested but GDS backend is disabled')
-        elif not cuda_dep.found()
-            error('GDS_MT plugin requested but CUDA dependency not found')
+        elif not cuda_dep.found() and not musa_dep.found()
+            error('GDS_MT plugin requested but neither CUDA nor MUSA dependency found')
         else
             error('GDS_MT plugin requested but Taskflow dependency not found')
         endif
-    elif not disable_gds_backend and cuda_dep.found() and taskflow_proj.found()
+    elif not disable_gds_backend and (cuda_dep.found() or musa_dep.found()) and taskflow_proj.found()
         subdir('gds_mt')
     endif
 endif

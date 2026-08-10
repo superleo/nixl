@@ -23,6 +23,8 @@ option('disable_infinia_backend', type : 'boolean', value : false, description :
 option('infinia_path', type: 'string', value: '/opt/ddn/red/', description: 'Path to Infinia client install')
 option('install_headers', type : 'boolean', value : true, description : 'install headers')
 option('gds_path', type: 'string', value: '/usr/local/cuda/', description: 'Path to GDS CuFile install')
+option('musa_path', type: 'string', value: '', description: 'Path to MUSA (Moore Threads) install for muFile-backed GDS_MT (default: auto-detect via MUSA_PATH/MUSA_HOME or /usr/local/musa)')
+option('gds_use_musa', type: 'boolean', value: false, description: 'Force the GDS_MT plugin to link muFile (libmusa) instead of cuFile. Auto-selected when CUDA is absent but MUSA is present.')
 option('cudapath_inc', type: 'string', value: '', description: 'Include path for CUDA')
 option('cudapath_lib', type: 'string', value: '', description: 'Library path for CUDA')
 option('cudapath_stub', type: 'string', value: '', description: 'Extra Stub path for CUDA')

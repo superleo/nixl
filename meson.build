@@ -324,6 +324,41 @@ else
     cuda_wheel_dir = 'nixl_cu12'
 endif
 
+# --- MUSA / muFile detection (independent of CUDA) ---------------------------
+# MUSA (Moore Threads) provides a CUDA-compatible runtime (libmusa) plus muFile,
+# a GPUDirect-Storage layer that is API-identical to NVIDIA cuFile. Because the
+# upstream GDS_MT plugin source is written against cuFile, we can reuse it on
+# MUSA unchanged by merely linking it against libmusa + libmufile instead of
+# libcudart + libcufile (see src/plugins/gds_mt/meson.build). This is the
+# "Route 1 / GDS_MT + muFile" strategy: zero new C++ plugin code.
+musa_dep = disabler()
+musa_home = get_option('musa_path')
+if musa_home == ''
+    musa_home = run_command('bash', '-c',
+        'echo ${MUSA_PATH:-${MUSA_HOME:-/usr/local/musa}}').stdout().strip()
+endif
+if musa_home == ''
+    musa_home = '/usr/local/musa'
+endif
+musa_lib = musa_home + '/lib'
+musa_inc = musa_home + '/include'
+if fs.exists(musa_lib) and fs.exists(musa_inc)
+    musa_dep = declare_dependency(
+        link_args : ['-L' + musa_lib, '-lmusa', '-Wl,-rpath,' + musa_lib],
+        include_directories : include_directories(musa_inc))
+    message('Found MUSA installation: ' + musa_home)
+endif
+
+if musa_dep.found()
+    add_project_arguments('-DHAVE_MUSA', language: 'cpp')
+    add_project_arguments('-D__MUSA_PLATFORM__', language: 'cpp')
+    message('MUSA support enabled (GDS_MT will link muFile instead of cuFile)')
+endif
+
+if cuda_dep.found() and musa_dep.found()
+    message('CUDA and MUSA are both available; GDS_MT links cuFile by default, use -Dgds_use_musa=true to force muFile.')
+endif
+
 # Allow callers (e.g. ROCm CI/Dockerfile) to override the wheel variant suffix
 # without otherwise affecting the build. Non-empty value wins over the
 # autodetected CUDA-major value above: e.g. -Dwheel_variant=rocm -> nixl_rocm.
