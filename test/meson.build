@@ -15,6 +15,7 @@
 
 subdir('nixl')
 subdir('unit')
+subdir('integration')
 
 subdir('gtest')
 

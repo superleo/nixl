@@ -40,3 +40,20 @@ if enabled_plugins.get('MUSA_UCX') and musa_dep.found() and ucx_dep.found()
     test('musa_plugin', musa_plugin_test, args: [musa_backend_lib.full_path()],
         depends: musa_backend_lib, suite: 'musa-plugin', timeout: 30)
 endif
+
+if get_option('musa_hardware_tests')
+    if not (enabled_plugins.get('MUSA_UCX') and musa_dep.found() and ucx_dep.found())
+        error('musa_hardware_tests requires a buildable MUSA_UCX plugin: ' +
+              'set -Dmusa_path=<SDK prefix> and -Ducx_path=<UCX prefix> and keep MUSA_UCX enabled')
+    endif
+    musa_ucx_e2e = executable('musa_ucx_e2e', 'musa_ucx_e2e.cpp',
+        dependencies: [nixl_dep, nixl_infra, musa_dep],
+        include_directories: [nixl_inc_dirs, utils_inc_dirs],
+        link_with: [serdes_lib])
+    # Documented hardware registration: single host, dual process, device/device,
+    # 64 KiB, background progress, device 0, WRITE + notification and READ back.
+    # Without a visible MUSA device or musa-capable UCX provider this must FAIL.
+    test('musa_ucx_e2e_device_device_64k', musa_ucx_e2e,
+        args: ['device', 'device', '65536', '0', '0', '0'],
+        suite: 'musa-hardware', timeout: 150)
+endif
